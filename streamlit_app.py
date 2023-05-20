@@ -1,38 +1,83 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
+# Import necessary libraries
+import openai
 import streamlit as st
 
-"""
-# Welcome to Streamlit!
-
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
-
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
-
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+# Setup OpenAI
+openai.api_key = "Enter OpenAi api key here"
 
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+# Define a method to get responses from GPT-3
+def get_response(prompt):
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-002",
+            prompt=prompt,
+            temperature=0.7,
+            max_tokens=1024,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0,
+        )
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+        return response.choices[0].text.strip()
 
-    points_per_turn = total_points / num_turns
+    except openai.error.APIError as e:
+        st.error(f"OpenAI API Error occurred: {e}")
+        return "I'm sorry, something went wrong."
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
+    except Exception as e:
+        st.error(f"Error occurred: {e}")
+        return "I'm sorry, something went wrong."
 
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+
+# Define the Streamlit app
+def chatbot():
+    st.title("Welcome to the Chatbot")
+    st.subheader("Please enter your message below:")
+
+    # Create an input box to get user's text input
+    user_input = st.text_input("", "")
+
+    if len(user_input) > 0:
+        # Format user's input for prompt
+        formatted_input = f"User: {user_input}\nAI:"
+
+        # Get AI response
+        response = get_response(formatted_input)
+
+        # Display AI response
+        st.text_area("AI:", value=response, height=200, max_chars=None, key=None)
+
+    else:
+        # Display initial prompt message
+        response = get_response("Hello! How may I assist you today?\nAI:")
+        st.text_area("AI:", value=response, height=200, max_chars=None, key=None)
+
+
+# Run the app
+if __name__ == "__main__":
+    try:
+        # Make an initial call to the API to check the API connection and load the authentication credentials
+        openai.Completion.create(
+            engine="text-davinci-002",
+            prompt="",
+            temperature=0,
+            max_tokens=0,
+            top_p=0,
+            frequency_penalty=0,
+            presence_penalty=0,
+        )
+
+        chatbot()
+
+    except openai.error.AuthenticationError:
+        st.error("Please enter your OpenAI API key in the code.")
+
+    except openai.error.APIError as e:
+        st.error(f"OpenAI API Error occurred: {e}")
+
+    except Exception as e:
+        st.error(f"Error occurred: {e}")
+
+        # Display error message
+        st.text_area("AI:", value="I'm sorry, something went wrong.", height=200, max_chars=None, key=None)
